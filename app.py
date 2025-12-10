@@ -2,7 +2,6 @@
 from flask import Flask, request, jsonify, render_template_string, send_file, session, redirect, url_for
 from flask_cors import CORS
 from web3 import Web3
-from solcx import compile_standard, install_solc
 from datetime import datetime
 import json
 import threading
@@ -50,108 +49,139 @@ contract FarmSupplyChain {
 }''')
 
 
-# Install and compile
-print("\n1. Installing Solidity compiler...")
-install_solc(version='0.8.19')
+# Skip Solidity compiler installation for Render deployment
+print("\n1. Using mock contract for demo (Solidity compilation skipped)...")
 
-print("2. Reading and compiling contract...")
-with open(CONTRACT_FILE, 'r') as file:
-    contract_source = file.read()
+# Use mock contract for demo deployment
+print("2. Using mock contract data...")
 
-compiled_sol = compile_standard(
-    {
-        "language": "Solidity",
-        "sources": {"FarmSupplyChain.sol": {"content": contract_source}},
-        "settings": {
-            "outputSelection": {
-                "*": {"*": ["abi", "evm.bytecode"]}
-            }
-        },
-    },
-    solc_version="0.8.19",
-)
+# Mock contract ABI and address for demo
+MOCK_ABI = [
+    {"type":"function","name":"registerProduct","inputs":[{"name":"_productId","type":"string"},{"name":"_productName","type":"string"},{"name":"_variety","type":"string"},{"name":"_quantity","type":"uint256"},{"name":"_qualityGrade","type":"string"},{"name":"_farmLocation","type":"string"},{"name":"_temperature","type":"string"},{"name":"_humidity","type":"string"},{"name":"_farmerName","type":"string"},{"name":"_notes","type":"string"}],"outputs":[],"stateMutability":"nonpayable"},
+    {"type":"function","name":"updateProduct","inputs":[{"name":"_productId","type":"string"},{"name":"_stage","type":"uint8"},{"name":"_location","type":"string"},{"name":"_temperature","type":"string"},{"name":"_humidity","type":"string"},{"name":"_handlerName","type":"string"},{"name":"_notes","type":"string"}],"outputs":[],"stateMutability":"nonpayable"},
+    {"type":"function","name":"getProduct","inputs":[{"name":"_productId","type":"string"}],"outputs":[{"name":"productName","type":"string"},{"name":"variety","type":"string"},{"name":"quantity","type":"uint256"},{"name":"qualityGrade","type":"string"},{"name":"farmer","type":"address"},{"name":"farmLocation","type":"string"},{"name":"harvestDate","type":"uint256"},{"name":"currentStage","type":"uint8"}],"stateMutability":"view"},
+    {"type":"function","name":"getProductHistory","inputs":[{"name":"_productId","type":"string"}],"outputs":[{"name":"","type":"tuple[]","components":[{"name":"handler","type":"address"},{"name":"handlerName","type":"string"},{"name":"stage","type":"uint8"},{"name":"location","type":"string"},{"name":"temperature","type":"string"},{"name":"humidity","type":"string"},{"name":"timestamp","type":"uint256"},{"name":"notes","type":"string"}]}],"stateMutability":"view"},
+    {"type":"function","name":"productExistsCheck","inputs":[{"name":"_productId","type":"string"}],"outputs":[{"name":"","type":"bool"}],"stateMutability":"view"}
+]
+contract_address = "0xMockContractAddress123456789"
 
-bytecode = compiled_sol['contracts']['FarmSupplyChain.sol']['FarmSupplyChain']['evm']['bytecode']['object']
-abi = compiled_sol['contracts']['FarmSupplyChain.sol']['FarmSupplyChain']['abi']
+# Use mock blockchain for demo
+print("3. Using mock blockchain for demo...")
+class MockBlockchain:
+    def __init__(self):
+        self.accounts = ['0x1234567890123456789012345678901234567890']
+        self.eth = self
+        self.block_number = 1
+        self.products = {}  # In-memory storage
+        self.product_history = {}
+        
+    def is_connected(self):
+        return True
+        
+    def eth(self):
+        return self
+        
+    def contract(self, address, abi):
+        return MockContract(self)
+        
+    def wait_for_transaction_receipt(self, tx_hash):
+        return {'contractAddress': contract_address, 'blockNumber': self.block_number}
 
-# Deploy to blockchain using HTTP provider (Infura)
-print("3. Connecting to blockchain...")
-# Use Infura or any Ethereum node URL
-# You can get a free API key from https://infura.io
-INFURA_URL = os.getenv('INFURA_URL', 'https://mainnet.infura.io/v3/YOUR_PROJECT_ID')
-w3 = Web3(Web3.HTTPProvider(INFURA_URL))
+class MockContract:
+    def __init__(self, blockchain):
+        self.blockchain = blockchain
+        
+    def functions(self):
+        return MockFunctions(self.blockchain)
 
-# For demo purposes, if no valid Infura URL, use a mock blockchain
-if not w3.is_connected():
-    print("Warning: Could not connect to blockchain. Using mock blockchain for demo.")
-    # Create a simple mock blockchain simulation
-    class MockBlockchain:
-        def __init__(self):
-            self.accounts = ['0x1234567890123456789012345678901234567890']
-            self.eth = self
-            self.contract = None
-            self.block_number = 1
-            
-        def is_connected(self):
-            return True
-            
-        def eth(self):
-            return self
-            
-        def contract(self, address, abi):
-            return MockContract()
-            
-        def wait_for_transaction_receipt(self, tx_hash):
-            return {'contractAddress': '0xMockContractAddress123456789', 'blockNumber': 1}
-    
-    class MockContract:
-        def __init__(self):
-            pass
-            
-        def constructor(self):
-            return self
-            
-        def transact(self, params):
-            return '0xMockTransactionHash'
-            
-        def functions(self):
-            return MockFunctions()
-    
-    class MockFunctions:
-        def registerProduct(self, *args):
-            return MockFunction()
-            
-        def updateProduct(self, *args):
-            return MockFunction()
-            
-        def getProduct(self, product_id):
-            return MockFunction()
-            
-        def getProductHistory(self, product_id):
-            return MockFunction()
-            
-        def productExistsCheck(self, product_id):
-            return MockFunction()
-    
-    class MockFunction:
-        def transact(self, params):
-            return '0xMockTransactionHash'
-            
-        def call(self):
-            return ['MockProduct', 'MockVariety', 100, 'GradeA', '0xMockAddress', 'MockLocation', 1234567890, 0]
-    
-    w3 = MockBlockchain()
-    account = w3.accounts[0]
-else:
-    print(f"Connected to blockchain at: {INFURA_URL}")
-    account = w3.eth.accounts[0] if w3.eth.accounts else w3.eth.account.create().address
+class MockFunctions:
+    def __init__(self, blockchain):
+        self.blockchain = blockchain
+        
+    def registerProduct(self, product_id, product_name, variety, quantity, quality_grade, farm_location, temperature, humidity, farmer_name, notes):
+        return MockFunction(self.blockchain, 'register', {
+            'product_id': product_id,
+            'product_name': product_name,
+            'variety': variety,
+            'quantity': quantity,
+            'quality_grade': quality_grade,
+            'farm_location': farm_location,
+            'temperature': temperature,
+            'humidity': humidity,
+            'farmer_name': farmer_name,
+            'notes': notes
+        })
+        
+    def updateProduct(self, product_id, stage, location, temperature, humidity, handler_name, notes):
+        return MockFunction(self.blockchain, 'update', {
+            'product_id': product_id,
+            'stage': stage,
+            'location': location,
+            'temperature': temperature,
+            'humidity': humidity,
+            'handler_name': handler_name,
+            'notes': notes
+        })
+        
+    def getProduct(self, product_id):
+        return MockFunction(self.blockchain, 'get', {'product_id': product_id})
+        
+    def getProductHistory(self, product_id):
+        return MockFunction(self.blockchain, 'history', {'product_id': product_id})
+        
+    def productExistsCheck(self, product_id):
+        return MockFunction(self.blockchain, 'exists', {'product_id': product_id})
 
-Contract = w3.eth.contract(abi=abi, bytecode=bytecode)
-tx_hash = Contract.constructor().transact({'from': account})
-tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
-contract_address = tx_receipt.contractAddress
+class MockFunction:
+    def __init__(self, blockchain, operation, data):
+        self.blockchain = blockchain
+        self.operation = operation
+        self.data = data
+        
+    def transact(self, params):
+        if self.operation == 'register':
+            self.blockchain.products[self.data['product_id']] = self.data
+            self.blockchain.product_history[self.data['product_id']] = [{
+                'handler': '0x1234567890123456789012345678901234567890',
+                'handlerName': self.data['farmer_name'],
+                'stage': 0,
+                'location': self.data['farm_location'],
+                'temperature': self.data['temperature'],
+                'humidity': self.data['humidity'],
+                'timestamp': int(datetime.now().timestamp()),
+                'notes': self.data['notes']
+            }]
+        elif self.operation == 'update':
+            if self.data['product_id'] in self.blockchain.products:
+                self.blockchain.product_history[self.data['product_id']].append({
+                    'handler': '0x1234567890123456789012345678901234567890',
+                    'handlerName': self.data['handler_name'],
+                    'stage': self.data['stage'],
+                    'location': self.data['location'],
+                    'temperature': self.data['temperature'],
+                    'humidity': self.data['humidity'],
+                    'timestamp': int(datetime.now().timestamp()),
+                    'notes': self.data['notes']
+                })
+        return '0xMockTransactionHash'
+        
+    def call(self):
+        if self.operation == 'get':
+            product = self.blockchain.products.get(self.data['product_id'])
+            if product:
+                return [product['product_name'], product['variety'], product['quantity'], 
+                       product['quality_grade'], '0x1234567890123456789012345678901234567890', 
+                       product['farm_location'], int(datetime.now().timestamp()), 0]
+            return None
+        elif self.operation == 'history':
+            return self.blockchain.product_history.get(self.data['product_id'], [])
+        elif self.operation == 'exists':
+            return self.data['product_id'] in self.blockchain.products
+        return None
 
-contract = w3.eth.contract(address=contract_address, abi=abi)
+w3 = MockBlockchain()
+account = w3.accounts[0]
+contract = w3.contract(contract_address, MOCK_ABI)
 
 print(f"✓ Contract deployed at: {contract_address}")
 

@@ -5,7 +5,6 @@ gunicorn>=22.0.0
 
 # Blockchain and Web3
 web3>=7.0.0
-py-solc-x>=1.4.0
 
 # QR code generation
 qrcode[pil]>=7.0.0
