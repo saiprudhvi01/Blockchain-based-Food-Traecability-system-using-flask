@@ -65,123 +65,110 @@ MOCK_ABI = [
 ]
 contract_address = "0xMockContractAddress123456789"
 
-# Use mock blockchain for demo
-print("3. Using mock blockchain for demo...")
-class MockBlockchain:
-    def __init__(self):
-        self.accounts = ['0x1234567890123456789012345678901234567890']
-        self.eth = self
-        self.block_number = 1
-        self.products = {}  # In-memory storage
-        self.product_history = {}
-        
-    def is_connected(self):
-        return True
-        
-    def eth(self):
-        return self
-        
-    def contract(self, address, abi):
-        return MockContract(self)
-        
-    def wait_for_transaction_receipt(self, tx_hash):
-        return {'contractAddress': contract_address, 'blockNumber': self.block_number}
+# Use simple mock blockchain for demo
+print("3. Using simple mock blockchain for demo...")
 
-class MockContract:
-    def __init__(self, blockchain):
-        self.blockchain = blockchain
-        self._functions = MockFunctions(self.blockchain)
+# In-memory storage for products
+products_db = {}
+history_db = []
+
+class SimpleMockContract:
+    def __init__(self):
+        pass
         
     @property
     def functions(self):
-        return self._functions
-
-class MockFunctions:
-    def __init__(self, blockchain):
-        self.blockchain = blockchain
+        return self
         
     def registerProduct(self, product_id, product_name, variety, quantity, quality_grade, farm_location, temperature, humidity, farmer_name, notes):
-        return MockFunction(self.blockchain, 'register', {
-            'product_id': product_id,
-            'product_name': product_name,
-            'variety': variety,
-            'quantity': quantity,
-            'quality_grade': quality_grade,
-            'farm_location': farm_location,
-            'temperature': temperature,
-            'humidity': humidity,
-            'farmer_name': farmer_name,
-            'notes': notes
-        })
+        class MockTx:
+            def transact(self, params):
+                # Store product
+                products_db[product_id] = {
+                    'product_name': product_name,
+                    'variety': variety,
+                    'quantity': quantity,
+                    'quality_grade': quality_grade,
+                    'farm_location': farm_location,
+                    'temperature': temperature,
+                    'humidity': humidity,
+                    'farmer_name': farmer_name,
+                    'notes': notes,
+                    'current_stage': 0
+                }
+                # Add to history
+                history_db.append({
+                    'product_id': product_id,
+                    'handler': '0x1234567890123456789012345678901234567890',
+                    'handler_name': farmer_name,
+                    'stage': 0,
+                    'location': farm_location,
+                    'temperature': temperature,
+                    'humidity': humidity,
+                    'timestamp': int(datetime.now().timestamp()),
+                    'notes': notes
+                })
+                return '0xMockTransactionHash'
+        return MockTx()
         
     def updateProduct(self, product_id, stage, location, temperature, humidity, handler_name, notes):
-        return MockFunction(self.blockchain, 'update', {
-            'product_id': product_id,
-            'stage': stage,
-            'location': location,
-            'temperature': temperature,
-            'humidity': humidity,
-            'handler_name': handler_name,
-            'notes': notes
-        })
+        class MockTx:
+            def transact(self, params):
+                if product_id in products_db:
+                    products_db[product_id]['current_stage'] = stage
+                    history_db.append({
+                        'product_id': product_id,
+                        'handler': '0x1234567890123456789012345678901234567890',
+                        'handler_name': handler_name,
+                        'stage': stage,
+                        'location': location,
+                        'temperature': temperature,
+                        'humidity': humidity,
+                        'timestamp': int(datetime.now().timestamp()),
+                        'notes': notes
+                    })
+                return '0xMockTransactionHash'
+        return MockTx()
         
     def getProduct(self, product_id):
-        return MockFunction(self.blockchain, 'get', {'product_id': product_id})
+        class MockCall:
+            def call(self):
+                if product_id in products_db:
+                    p = products_db[product_id]
+                    return [p['product_name'], p['variety'], p['quantity'], 
+                           p['quality_grade'], '0x1234567890123456789012345678901234567890', 
+                           p['farm_location'], int(datetime.now().timestamp()), p['current_stage']]
+                return None
+        return MockCall()
         
     def getProductHistory(self, product_id):
-        return MockFunction(self.blockchain, 'history', {'product_id': product_id})
+        class MockCall:
+            def call(self):
+                product_history = [h for h in history_db if h['product_id'] == product_id]
+                return [[h['handler'], h['handler_name'], h['stage'], h['location'], 
+                       h['temperature'], h['humidity'], h['timestamp'], h['notes']] 
+                       for h in product_history]
+        return MockCall()
         
     def productExistsCheck(self, product_id):
-        return MockFunction(self.blockchain, 'exists', {'product_id': product_id})
+        class MockCall:
+            def call(self):
+                return product_id in products_db
+        return MockCall()
 
-class MockFunction:
-    def __init__(self, blockchain, operation, data):
-        self.blockchain = blockchain
-        self.operation = operation
-        self.data = data
+# Simple mock blockchain
+class SimpleMockBlockchain:
+    def __init__(self):
+        self.accounts = ['0x1234567890123456789012345678901234567890']
+        self.eth = self
         
-    def transact(self, params):
-        if self.operation == 'register':
-            self.blockchain.products[self.data['product_id']] = self.data
-            self.blockchain.product_history[self.data['product_id']] = [{
-                'handler': '0x1234567890123456789012345678901234567890',
-                'handlerName': self.data['farmer_name'],
-                'stage': 0,
-                'location': self.data['farm_location'],
-                'temperature': self.data['temperature'],
-                'humidity': self.data['humidity'],
-                'timestamp': int(datetime.now().timestamp()),
-                'notes': self.data['notes']
-            }]
-        elif self.operation == 'update':
-            if self.data['product_id'] in self.blockchain.products:
-                self.blockchain.product_history[self.data['product_id']].append({
-                    'handler': '0x1234567890123456789012345678901234567890',
-                    'handlerName': self.data['handler_name'],
-                    'stage': self.data['stage'],
-                    'location': self.data['location'],
-                    'temperature': self.data['temperature'],
-                    'humidity': self.data['humidity'],
-                    'timestamp': int(datetime.now().timestamp()),
-                    'notes': self.data['notes']
-                })
-        return '0xMockTransactionHash'
+    def contract(self, address, abi):
+        return SimpleMockContract()
         
-    def call(self):
-        if self.operation == 'get':
-            product = self.blockchain.products.get(self.data['product_id'])
-            if product:
-                return [product['product_name'], product['variety'], product['quantity'], 
-                       product['quality_grade'], '0x1234567890123456789012345678901234567890', 
-                       product['farm_location'], int(datetime.now().timestamp()), 0]
-            return None
-        elif self.operation == 'history':
-            return self.blockchain.product_history.get(self.data['product_id'], [])
-        elif self.operation == 'exists':
-            return self.data['product_id'] in self.blockchain.products
-        return None
+    def wait_for_transaction_receipt(self, tx_hash):
+        return {'contractAddress': contract_address, 'blockNumber': 1}
 
-w3 = MockBlockchain()
+w3 = SimpleMockBlockchain()
 account = w3.accounts[0]
 contract = w3.contract(contract_address, MOCK_ABI)
 
