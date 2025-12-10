@@ -16,7 +16,7 @@ Pillow==10.4.0
 python-dotenv==1.0.1
 
 # Security and hashing
-cryptography==42.0.8
+cryptography==44.0.1
 
 # JSON handling (built-in but included for clarity)
 # json - built-in module
