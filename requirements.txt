@@ -1,6 +1,6 @@
 # Flask and web framework
 Flask==3.0.3
-Flask-CORS==4.0.1
+Flask-CORS==6.0.0
 gunicorn==22.0.0
 
 # Blockchain and Web3
