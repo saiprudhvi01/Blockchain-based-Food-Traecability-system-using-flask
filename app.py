@@ -90,9 +90,11 @@ class MockBlockchain:
 class MockContract:
     def __init__(self, blockchain):
         self.blockchain = blockchain
+        self._functions = MockFunctions(self.blockchain)
         
+    @property
     def functions(self):
-        return MockFunctions(self.blockchain)
+        return self._functions
 
 class MockFunctions:
     def __init__(self, blockchain):
