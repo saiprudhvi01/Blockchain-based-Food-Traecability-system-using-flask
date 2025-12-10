@@ -9,6 +9,7 @@ import qrcode
 import os
 from io import BytesIO
 import hashlib
+import secrets
 
 print("=" * 60)
 print("FARM TRACE - COMPLETE SYSTEM WITH QR CODE")
@@ -72,6 +73,15 @@ print("3. Using simple mock blockchain for demo...")
 products_db = {}
 history_db = []
 
+def generate_tx_hash():
+    """Generate realistic blockchain transaction hash"""
+    random_bytes = secrets.token_bytes(32)
+    return '0x' + random_bytes.hex()
+
+def generate_block_number():
+    """Generate realistic block number"""
+    return secrets.randbelow(1000000) + 18000000
+
 class SimpleMockContract:
     def __init__(self):
         pass
@@ -112,7 +122,7 @@ class SimpleMockContract:
                     'timestamp': int(datetime.now().timestamp()),
                     'notes': notes
                 })
-                return '0xMockTransactionHash'
+                return generate_tx_hash()
         return MockTx()
         
     def updateProduct(self, product_id, stage, location, temperature, humidity, handler_name, notes):
@@ -131,7 +141,7 @@ class SimpleMockContract:
                         'timestamp': int(datetime.now().timestamp()),
                         'notes': notes
                     })
-                return '0xMockTransactionHash'
+                return generate_tx_hash()
         return MockTx()
         
     def getProduct(self, product_id):
@@ -171,7 +181,7 @@ class SimpleMockContract:
                         if product_id in products_db:
                             return [{
                                 'args': {'timestamp': int(datetime.now().timestamp()), 'productId': product_id},
-                                'transactionHash': '0xMockTransactionHash'
+                                'transactionHash': generate_tx_hash()
                             }]
                         return []
                 return MockFilter()
@@ -187,7 +197,7 @@ class SimpleMockContract:
                         product_history = [h for h in history_db if h['product_id'] == product_id]
                         return [{
                             'args': {'timestamp': h['timestamp'], 'productId': product_id},
-                            'transactionHash': '0xMockTransactionHash'
+                            'transactionHash': generate_tx_hash()
                         } for h in product_history]
                 return MockFilter()
         return MockEvent()
@@ -202,7 +212,7 @@ class SimpleMockBlockchain:
         return SimpleMockContract()
         
     def wait_for_transaction_receipt(self, tx_hash):
-        return {'contractAddress': contract_address, 'blockNumber': 1}
+        return {'contractAddress': contract_address, 'blockNumber': generate_block_number()}
 
 w3 = SimpleMockBlockchain()
 account = w3.accounts[0]
@@ -437,9 +447,9 @@ def get_product_backend(product_id):
         # --- NEW: Get event logs to find transaction hashes ---
         # For mock blockchain, use simple timestamp mapping
         hash_by_timestamp = {}
-        # Add mock transaction hash for the registration
+        # Add realistic transaction hash for the registration
         if product_id in products_db:
-            hash_by_timestamp[int(datetime.now().timestamp())] = '0xMockTransactionHash'
+            hash_by_timestamp[int(datetime.now().timestamp())] = generate_tx_hash()
         # --- END NEW ---
         
         product_data = {
@@ -499,9 +509,9 @@ def track_product(product_id):
         # --- NEW: Get event logs to find transaction hashes ---
         # For mock blockchain, use simple timestamp mapping
         hash_by_timestamp = {}
-        # Add mock transaction hash for the registration
+        # Add realistic transaction hash for the registration
         if product_id in products_db:
-            hash_by_timestamp[int(datetime.now().timestamp())] = '0xMockTransactionHash'
+            hash_by_timestamp[int(datetime.now().timestamp())] = generate_tx_hash()
         # --- END NEW ---
         
         product_data = {
