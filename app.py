@@ -379,7 +379,7 @@ def register_product():
         return jsonify({
             'success': True,
             'productId': product_id,
-            'transactionHash': tx_hash if isinstance(tx_hash, str) else tx_hash.hex(),
+            'transactionHash': tx_hash,
             'blockNumber': receipt['blockNumber'],
             'qrCodePath': qr_path,
             'qrCodeUrl': f'/api/qrcode/{product_id}'
@@ -417,7 +417,7 @@ def update_product():
         receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
         return jsonify({
             'success': True,
-            'transactionHash': tx_hash if isinstance(tx_hash, str) else tx_hash.hex(),
+            'transactionHash': tx_hash,
             'blockNumber': receipt['blockNumber']
         })
     except Exception as e:
@@ -435,24 +435,11 @@ def get_product_backend(product_id):
         history_data = contract.functions.getProductHistory(product_id).call()
         
         # --- NEW: Get event logs to find transaction hashes ---
-        # 1. Get registration event
-        register_event_filter = contract.events.ProductRegistered.create_filter(
-            from_block=0,  # <-- FIXED
-            argument_filters={'productId': product_id}
-        )
-        register_logs = register_event_filter.get_all_entries()
-        
-        # 2. Get update events
-        update_event_filter = contract.events.ProductUpdated.create_filter(
-            from_block=0,  # <-- FIXED
-            argument_filters={'productId': product_id}
-        )
-        update_logs = update_event_filter.get_all_entries()
-
-        # 3. Create a lookup map for hash by timestamp
+        # For mock blockchain, use simple timestamp mapping
         hash_by_timestamp = {}
-        for log in register_logs + update_logs:
-            hash_by_timestamp[log['args']['timestamp']] = log['transactionHash'] if isinstance(log['transactionHash'], str) else log['transactionHash'].hex()
+        # Add mock transaction hash for the registration
+        if product_id in products_db:
+            hash_by_timestamp[int(datetime.now().timestamp())] = '0xMockTransactionHash'
         # --- END NEW ---
         
         product_data = {
@@ -510,24 +497,11 @@ def track_product(product_id):
         history_data = contract.functions.getProductHistory(product_id).call()
         
         # --- NEW: Get event logs to find transaction hashes ---
-        # 1. Get registration event
-        register_event_filter = contract.events.ProductRegistered.create_filter(
-            from_block=0,  # <-- FIXED
-            argument_filters={'productId': product_id}
-        )
-        register_logs = register_event_filter.get_all_entries()
-        
-        # 2. Get update events
-        update_event_filter = contract.events.ProductUpdated.create_filter(
-            from_block=0,  # <-- FIXED
-            argument_filters={'productId': product_id}
-        )
-        update_logs = update_event_filter.get_all_entries()
-
-        # 3. Create a lookup map for hash by timestamp
+        # For mock blockchain, use simple timestamp mapping
         hash_by_timestamp = {}
-        for log in register_logs + update_logs:
-            hash_by_timestamp[log['args']['timestamp']] = log['transactionHash'] if isinstance(log['transactionHash'], str) else log['transactionHash'].hex()
+        # Add mock transaction hash for the registration
+        if product_id in products_db:
+            hash_by_timestamp[int(datetime.now().timestamp())] = '0xMockTransactionHash'
         # --- END NEW ---
         
         product_data = {
@@ -1826,7 +1800,7 @@ if __name__ == '__main__':
     print(f"QR Codes Directory: {os.path.abspath(QR_CODE_DIR)}")
     print("=" * 60)
     print("\nHow to use:")
-    print("1. Open http://localhost:{port}")
+    print(f"1. Open http://localhost:{port}")
     print("2. Login or register an account")
     print("3. Staff accounts can register/update products")
     print("4. Customer accounts can track products")
