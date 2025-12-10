@@ -1,7 +1,7 @@
 
 from flask import Flask, request, jsonify, render_template_string, send_file, session, redirect, url_for
 from flask_cors import CORS
-from web3 import Web3, EthereumTesterProvider
+from web3 import Web3
 from solcx import compile_standard, install_solc
 from datetime import datetime
 import json
@@ -74,10 +74,77 @@ compiled_sol = compile_standard(
 bytecode = compiled_sol['contracts']['FarmSupplyChain.sol']['FarmSupplyChain']['evm']['bytecode']['object']
 abi = compiled_sol['contracts']['FarmSupplyChain.sol']['FarmSupplyChain']['abi']
 
-# Deploy to shared blockchain
-print("3. Deploying contract...")
-w3 = Web3(EthereumTesterProvider())
-account = w3.eth.accounts[0]
+# Deploy to blockchain using HTTP provider (Infura)
+print("3. Connecting to blockchain...")
+# Use Infura or any Ethereum node URL
+# You can get a free API key from https://infura.io
+INFURA_URL = os.getenv('INFURA_URL', 'https://mainnet.infura.io/v3/YOUR_PROJECT_ID')
+w3 = Web3(Web3.HTTPProvider(INFURA_URL))
+
+# For demo purposes, if no valid Infura URL, use a mock blockchain
+if not w3.is_connected():
+    print("Warning: Could not connect to blockchain. Using mock blockchain for demo.")
+    # Create a simple mock blockchain simulation
+    class MockBlockchain:
+        def __init__(self):
+            self.accounts = ['0x1234567890123456789012345678901234567890']
+            self.eth = self
+            self.contract = None
+            self.block_number = 1
+            
+        def is_connected(self):
+            return True
+            
+        def eth(self):
+            return self
+            
+        def contract(self, address, abi):
+            return MockContract()
+            
+        def wait_for_transaction_receipt(self, tx_hash):
+            return {'contractAddress': '0xMockContractAddress123456789', 'blockNumber': 1}
+    
+    class MockContract:
+        def __init__(self):
+            pass
+            
+        def constructor(self):
+            return self
+            
+        def transact(self, params):
+            return '0xMockTransactionHash'
+            
+        def functions(self):
+            return MockFunctions()
+    
+    class MockFunctions:
+        def registerProduct(self, *args):
+            return MockFunction()
+            
+        def updateProduct(self, *args):
+            return MockFunction()
+            
+        def getProduct(self, product_id):
+            return MockFunction()
+            
+        def getProductHistory(self, product_id):
+            return MockFunction()
+            
+        def productExistsCheck(self, product_id):
+            return MockFunction()
+    
+    class MockFunction:
+        def transact(self, params):
+            return '0xMockTransactionHash'
+            
+        def call(self):
+            return ['MockProduct', 'MockVariety', 100, 'GradeA', '0xMockAddress', 'MockLocation', 1234567890, 0]
+    
+    w3 = MockBlockchain()
+    account = w3.accounts[0]
+else:
+    print(f"Connected to blockchain at: {INFURA_URL}")
+    account = w3.eth.accounts[0] if w3.eth.accounts else w3.eth.account.create().address
 
 Contract = w3.eth.contract(abi=abi, bytecode=bytecode)
 tx_hash = Contract.constructor().transact({'from': account})
