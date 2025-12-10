@@ -80,6 +80,10 @@ class SimpleMockContract:
     def functions(self):
         return self
         
+    @property
+    def events(self):
+        return self
+        
     def registerProduct(self, product_id, product_name, variety, quantity, quality_grade, farm_location, temperature, humidity, farmer_name, notes):
         class MockTx:
             def transact(self, params):
@@ -155,6 +159,38 @@ class SimpleMockContract:
             def call(self):
                 return product_id in products_db
         return MockCall()
+        
+    # Event methods
+    def ProductRegistered(self):
+        class MockEvent:
+            def create_filter(self, from_block, argument_filters=None):
+                class MockFilter:
+                    def get_all_entries(self):
+                        # Return mock event logs
+                        product_id = argument_filters.get('productId', '') if argument_filters else ''
+                        if product_id in products_db:
+                            return [{
+                                'args': {'timestamp': int(datetime.now().timestamp()), 'productId': product_id},
+                                'transactionHash': '0xMockTransactionHash'
+                            }]
+                        return []
+                return MockFilter()
+        return MockEvent()
+        
+    def ProductUpdated(self):
+        class MockEvent:
+            def create_filter(self, from_block, argument_filters=None):
+                class MockFilter:
+                    def get_all_entries(self):
+                        # Return mock event logs
+                        product_id = argument_filters.get('productId', '') if argument_filters else ''
+                        product_history = [h for h in history_db if h['product_id'] == product_id]
+                        return [{
+                            'args': {'timestamp': h['timestamp'], 'productId': product_id},
+                            'transactionHash': '0xMockTransactionHash'
+                        } for h in product_history]
+                return MockFilter()
+        return MockEvent()
 
 # Simple mock blockchain
 class SimpleMockBlockchain:
@@ -343,7 +379,7 @@ def register_product():
         return jsonify({
             'success': True,
             'productId': product_id,
-            'transactionHash': tx_hash.hex(),
+            'transactionHash': tx_hash if isinstance(tx_hash, str) else tx_hash.hex(),
             'blockNumber': receipt['blockNumber'],
             'qrCodePath': qr_path,
             'qrCodeUrl': f'/api/qrcode/{product_id}'
@@ -381,7 +417,7 @@ def update_product():
         receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
         return jsonify({
             'success': True,
-            'transactionHash': tx_hash.hex(),
+            'transactionHash': tx_hash if isinstance(tx_hash, str) else tx_hash.hex(),
             'blockNumber': receipt['blockNumber']
         })
     except Exception as e:
@@ -416,7 +452,7 @@ def get_product_backend(product_id):
         # 3. Create a lookup map for hash by timestamp
         hash_by_timestamp = {}
         for log in register_logs + update_logs:
-            hash_by_timestamp[log['args']['timestamp']] = log['transactionHash'].hex()
+            hash_by_timestamp[log['args']['timestamp']] = log['transactionHash'] if isinstance(log['transactionHash'], str) else log['transactionHash'].hex()
         # --- END NEW ---
         
         product_data = {
@@ -491,7 +527,7 @@ def track_product(product_id):
         # 3. Create a lookup map for hash by timestamp
         hash_by_timestamp = {}
         for log in register_logs + update_logs:
-            hash_by_timestamp[log['args']['timestamp']] = log['transactionHash'].hex()
+            hash_by_timestamp[log['args']['timestamp']] = log['transactionHash'] if isinstance(log['transactionHash'], str) else log['transactionHash'].hex()
         # --- END NEW ---
         
         product_data = {
